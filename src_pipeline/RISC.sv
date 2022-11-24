@@ -130,6 +130,9 @@ module RISC #(
     logic[4:0] rs1_EX;
     register #(.width(5)) rs1_to_EX(.clk(clk), .D(rs1_ID), .Q(rs1_EX), .RAZ(kill_to_EX));
 
+    wire [31:0] rs1_value_EX;
+    wire [31:0] rs2_value_EX;
+
     logic[4:0] rs2_ID;
     logic[4:0] rs2_EX;
     register #(.width(5)) rs2_to_EX(.clk(clk), .D(rs2_ID), .Q(rs2_EX), .RAZ(kill_to_EX));
@@ -250,27 +253,27 @@ module RISC #(
         end
     end
 
-    assign rvfi_valid     <= !kill_to_EX;
-    assign rvfi_order     <= order;
-    assign rvfi_insn      <= // ???
-    assign rvfi_trap      <= trap;
-    assign rvfi_halt      <= trap;
-    assign rvfi_intr      <= 0; // no trap handler
-    assign rvfi_mode      <= 1;
-    assign rvfi_ixl       <= 0;
-    assign rvfi_rs1_addr  <= rs1_EX;
-    assign rvfi_rs2_addr  <= rs2_EX;
-    assign rvfi_rs1_rdata <= rs1_value_EX;
-    assign rvfi_rs2_rdata <= rs2_value_EX;
-    assign rvfi_rd_addr   <= rd_EX;
-    assign rvfi_rd_wdata  <= res_EX;
-    assign rvfi_pc_rdata  <= PC_EX;
-    assign rvfi_pc_wdata  <= jump ? jump_addr : PC_ID;
-    assign rvfi_mem_addr  <= d_address;
-    assign rvfi_mem_rmask <= (!d_write_enable & d_data_valid) ? 4'hf : 4'h0;
-    assign rvfi_mem_wmask <= ( d_write_enable & d_data_valid) ? 4'hf : 4'h0; 
-    assign rvfi_mem_rdata <= d_data_read;
-    assign rvfi_mem_wdata <= d_data_write;
+    assign rvfi_valid     = !kill_to_EX;
+    assign rvfi_order     = order;
+    assign rvfi_insn      = '0;// ???
+    assign rvfi_trap      = trap;
+    assign rvfi_halt      = trap;
+    assign rvfi_intr      = 0; // no trap handler
+    assign rvfi_mode      = 1;
+    assign rvfi_ixl       = 0;
+    assign rvfi_rs1_addr  = rs1_EX;
+    assign rvfi_rs2_addr  = rs2_EX;
+    assign rvfi_rs1_rdata = rs1_value_EX;
+    assign rvfi_rs2_rdata = rs2_value_EX;
+    assign rvfi_rd_addr   = rd_EX;
+    assign rvfi_rd_wdata  = res_EX;
+    assign rvfi_pc_rdata  = PC_EX;
+    assign rvfi_pc_wdata  = jump ? jump_addr : PC_ID;
+    assign rvfi_mem_addr  = d_address;
+    assign rvfi_mem_rmask = (!d_write_enable & d_data_valid) ? 4'hf : 4'h0;
+    assign rvfi_mem_wmask = ( d_write_enable & d_data_valid) ? 4'hf : 4'h0; 
+    assign rvfi_mem_rdata = d_data_read;
+    assign rvfi_mem_wdata = d_data_write;
 
 `endif
 
