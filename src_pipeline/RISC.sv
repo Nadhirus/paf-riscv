@@ -18,7 +18,8 @@ endmodule
 
 module RISC #(
         localparam NRET = 1,
-        localparam ILEN = 32
+        localparam ILEN = 32,
+        localparam XLEN = 32
     ) (
     input logic            clk,
     input logic            reset_n,
@@ -58,7 +59,17 @@ module RISC #(
     output [NRET * XLEN/8 - 1 : 0] rvfi_mem_rmask,
     output [NRET * XLEN/8 - 1 : 0] rvfi_mem_wmask,
     output [NRET * XLEN   - 1 : 0] rvfi_mem_rdata,
-    output [NRET * XLEN   - 1 : 0] rvfi_mem_wdata
+    output [NRET * XLEN   - 1 : 0] rvfi_mem_wdata,
+
+
+    output [NRET * 64   - 1 : 0] rvfi_csr_minstret_wdata,
+    output [NRET * 64   - 1 : 0] rvfi_csr_minstret_wmask,
+    output [NRET * 64   - 1 : 0] rvfi_csr_minstret_rmask,
+    output [NRET * 64   - 1 : 0] rvfi_csr_minstret_rdata,
+    output [NRET * 64   - 1 : 0] rvfi_csr_mcycle_wdata,
+    output [NRET * 64   - 1 : 0] rvfi_csr_mcycle_wmask,
+    output [NRET * 64   - 1 : 0] rvfi_csr_mcycle_rmask,
+    output [NRET * 64   - 1 : 0] rvfi_csr_mcycle_rdata
     `endif
     );
     
@@ -66,10 +77,10 @@ module RISC #(
 
     //KILL signals for setting internal registers to 0 and create
     //bubble.
-    //logic kill_to_ID;
     logic kill_to_EX;
-    //logic kill_to_MEM;
-    //logic kill_to_WB;
+    logic kill_to_ID = 0;
+    wire kill_to_MEM = 0;
+    wire kill_to_WB = 0;
 
     wire ill_ID;
     logic trap;
@@ -158,7 +169,7 @@ module RISC #(
     register #(.width(32)) res_to_WB(.clk(clk), .D(res_MEM), .Q(res_WB), .RAZ(kill_to_WB));
 
 
-    wire [31:0] jump_addr = (opcode == JALR) ? res_EX : PC_EX + imm_IFEX;
+    wire [31:0] jump_addr = (opcode_IFEX == JALR) ? res_EX : PC_EX + imm_IFEX;
     wire jump = (
         opcode_IFEX == AUIPC 
      || opcode_IFEX == JAL
@@ -229,6 +240,9 @@ module RISC #(
             .d_write_enable(d_write_enable)
     );
 
+
+    assign d_data_valid = d_data_write || (opcode_MEM == LOAD);
+
     //The WB module is mostly a multiplexer for knowing what to 
     //write in rd.
     WB WB_module    (
@@ -254,7 +268,7 @@ module RISC #(
     end
 
     assign rvfi_valid     = !kill_to_EX;
-    assign rvfi_order     = order;
+    assign rvfi_order     = ins_order;
     assign rvfi_insn      = '0;// ???
     assign rvfi_trap      = trap;
     assign rvfi_halt      = trap;
@@ -263,18 +277,27 @@ module RISC #(
     assign rvfi_ixl       = 0;
     assign rvfi_rs1_addr  = rs1_EX;
     assign rvfi_rs2_addr  = rs2_EX;
-    assign rvfi_rs1_rdata = rs1_value_EX;
-    assign rvfi_rs2_rdata = rs2_value_EX;
     assign rvfi_rd_addr   = rd_EX;
-    assign rvfi_rd_wdata  = res_EX;
-    assign rvfi_pc_rdata  = PC_EX;
-    assign rvfi_pc_wdata  = jump ? jump_addr : PC_ID;
     assign rvfi_mem_addr  = d_address;
     assign rvfi_mem_rmask = (!d_write_enable & d_data_valid) ? 4'hf : 4'h0;
     assign rvfi_mem_wmask = ( d_write_enable & d_data_valid) ? 4'hf : 4'h0; 
     assign rvfi_mem_rdata = d_data_read;
     assign rvfi_mem_wdata = d_data_write;
 
+    assign rvfi_pc_wdata  = jump ? jump_addr : PC_ID;
+    assign rvfi_pc_rdata  = PC_EX;
+    assign rvfi_rd_wdata  = res_EX;
+    assign rvfi_rs1_rdata = rs1_value_EX;
+    assign rvfi_rs2_rdata = rs2_value_EX;
+
+    assign rvfi_csr_minstret_wdata = '0;
+    assign rvfi_csr_minstret_wmask = '0;
+    assign rvfi_csr_minstret_rmask = '0;
+    assign rvfi_csr_minstret_rdata = '0;
+    assign rvfi_csr_mcycle_wdata   = '0;
+    assign rvfi_csr_mcycle_wmask   = '0;
+    assign rvfi_csr_mcycle_rmask   = '0;
+    assign rvfi_csr_mcycle_rdata   = '0;
 `endif
 
 endmodule

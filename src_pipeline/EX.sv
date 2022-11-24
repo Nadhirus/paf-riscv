@@ -1,5 +1,8 @@
 module EX(input logic[4:0] rs1,
           input logic[4:0] rs2,
+          output logic[31:0] rs1_value,
+          output logic[31:0] rs2_value,
+
           input logic[4:0] rd_WB,
           input logic[31:0] res_WB,
           input logic[31:0] imm,
@@ -21,6 +24,10 @@ module EX(input logic[4:0] rs1,
 
     initial
         regs[0] = 0;
+
+
+    assign rs1_value = regs[rs1];
+    assign rs2_value = regs[rs2];
 
     always @(*)
     begin
