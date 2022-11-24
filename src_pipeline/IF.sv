@@ -20,7 +20,7 @@ module IF   (
 
     always @(*)
         if (jump)
-            i_addr <= jump;
+            i_addr <= jumpaddr;
         else
             i_addr <= PC;
 

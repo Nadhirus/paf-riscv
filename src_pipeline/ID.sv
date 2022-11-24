@@ -66,6 +66,8 @@ module ID   (
         endcase
     end
 
+    // @todo load store ill on miss word alignment
+
     //op is the concatenation of a characteristic bit of funct7
     //if it exists and funct3. When associated with opcode,
     //it gives a unique identifier for any operation.

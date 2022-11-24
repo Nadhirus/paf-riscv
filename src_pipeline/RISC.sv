@@ -72,8 +72,17 @@ module RISC #(
     output [NRET * 64   - 1 : 0] rvfi_csr_mcycle_rdata
     `endif
     );
-    
-    `include "OPTYPE.vh"   
+localparam LUI      = 7'b0110111;
+localparam AUIPC    = 7'b0010111;
+localparam JAL      = 7'b1101111;
+localparam JALR     = 7'b1100111;
+
+localparam BRANCH   = 7'b1100011;
+localparam LOAD     = 7'b0000011;
+localparam STORE    = 7'b0100011;
+localparam IMM_OP   = 7'b0010011;
+localparam REG_OP   = 7'b0110011;
+
 
     //KILL signals for setting internal registers to 0 and create
     //bubble.
@@ -179,6 +188,16 @@ module RISC #(
 
 
 
+
+
+
+    always @* begin
+        if(reset_n) begin
+            assert(i_address[1:0] == 0);
+        end
+    end
+
+
     //The IF module is composed of a Program Counter, which output
     //is given the ROM and propagated to ID
     //logic[31:0] IF_out; obsolete, was redundant with PC_IF
@@ -240,8 +259,6 @@ module RISC #(
             .d_write_enable(d_write_enable)
     );
 
-
-    assign d_data_valid = d_data_write || (opcode_MEM == LOAD);
 
     //The WB module is mostly a multiplexer for knowing what to 
     //write in rd.
