@@ -45,7 +45,7 @@ module ID   (
             JAL   : ;
             JALR  : ill = (func3 != 3'b0);
             BRANCH: ill = (func3 == 3'b010 || func3 == 3'b011);
-            LOAD  : ill = (func3 == 3'b011 || func3 == 3'b111) || func3 == 3'b110);
+            LOAD  : ill = (func3 == 3'b011 || func3 == 3'b111 || func3 == 3'b110);
             STORE : ill = (func3 >  3'b010);
             IMM_OP: begin
                 case(func3)
