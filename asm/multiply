@@ -1,0 +1,11 @@
+ORI x1, x0, 25
+ORI x2, x0, 44
+fast_multiply: ADD  x3, x0, x0
+next_digit: ANDI x4, x2, 1
+    SRAI x2, x2, 1
+    BEQ  x4, x0, skip
+    ADD  x3, x3, x1
+skip: SLLI x1, x1, 1
+    BNE  x2, x0, next_digit
+    ADD  x1, x0, x3
+end: JAL x0, end
