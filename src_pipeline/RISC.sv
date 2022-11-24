@@ -275,35 +275,82 @@ localparam REG_OP   = 7'b0110011;
 `ifdef RVFI_TRACE
     logic [63:0] ins_order;
 
+    wire ins_valid = !kill_to_EX;
+
+    wire  [63:0] next_ins_order = ins_valid ? (ins_order + 64'h1) : ins_order;
+    //wire  [63:0] next_ins_order = ins_order + 64'h1;
+
     always_ff @(posedge clk) begin
         if(!reset_n)
             ins_order <= 0;
-        else begin
-            if(rvfi_valid)
-                ins_order <= ins_order + 64'h1;
+        else
+            ins_order <= next_ins_order;
+    end
+
+    logic        valid_q;
+    logic        trap_q;
+    logic [31:0] mem_addr_q;
+    logic [3:0]  mem_rmask_q;
+    logic [3:0]  mem_wmask_q;
+    logic [31:0] mem_rdata_q;
+    logic [31:0] mem_wdata_q;
+    logic [31:0] pc_wdata_q;
+    logic [31:0] rs1_rdata_q;
+    logic [31:0] rs2_rdata_q;
+    logic [4:0]  rs1_q;
+    logic [4:0]  rs2_q;
+
+    always_ff @(posedge clk) begin
+        if(!reset_n) begin
+            valid_q     <= '0;
+            trap_q      <= '0;
+            mem_addr_q  <= '0;
+            mem_rmask_q <= '0;
+            mem_wmask_q <= '0;
+            mem_rdata_q <= '0;
+            mem_wdata_q <= '0;
+            pc_wdata_q  <= '0;
+            rs1_rdata_q <= '0;
+            rs2_rdata_q <= '0;
+            rs1_q       <= '0;
+            rs2_q       <= '0;
+        end
+        else  begin
+            valid_q     <= ins_valid;
+            trap_q      <= '0;
+            mem_addr_q  <= d_address;
+            mem_rmask_q <= (opcode_MEM == STORE) ? 4'hf : 4'h0;
+            mem_wmask_q <= (opcode_MEM == LOAD)  ? 4'hf : 4'h0;
+            mem_rdata_q <= d_data_read;
+            mem_wdata_q <= d_data_write;
+            pc_wdata_q  <= jump ? jump_addr : PC_ID;
+            rs1_rdata_q <= rs1_value_EX;
+            rs2_rdata_q <= rs2_value_EX;
+            rs1_q       <= rs1_EX;
+            rs2_q       <= rs2_EX;
         end
     end
 
-    assign rvfi_valid     = !kill_to_EX;
+    assign rvfi_valid     = valid_q;//!kill_to_EX;
     assign rvfi_order     = ins_order;
     assign rvfi_insn      = '0;// ???
-    assign rvfi_trap      = trap;
-    assign rvfi_halt      = trap;
+    assign rvfi_trap      = trap_q;
+    assign rvfi_halt      = trap_q;
     assign rvfi_intr      = 0; // no trap handler
     assign rvfi_mode      = 1;
     assign rvfi_ixl       = 0;
-    assign rvfi_rs1_addr  = rs1_EX;
-    assign rvfi_rs2_addr  = rs2_EX;
-    assign rvfi_rd_addr   = rd_EX;
-    assign rvfi_mem_addr  = d_address;
-    assign rvfi_mem_rmask = (!d_write_enable & d_data_valid) ? 4'hf : 4'h0;
-    assign rvfi_mem_wmask = ( d_write_enable & d_data_valid) ? 4'hf : 4'h0; 
-    assign rvfi_mem_rdata = d_data_read;
-    assign rvfi_mem_wdata = d_data_write;
+    assign rvfi_rs1_addr  = rs1_q;//rs1_EX;
+    assign rvfi_rs2_addr  = rs2_q;//rs2_EX;
+    assign rvfi_rd_addr   = rd_MEM;//rd_EX;
+    assign rvfi_mem_addr  = mem_addr_q;
+    assign rvfi_mem_rmask = mem_rmask_q;
+    assign rvfi_mem_wmask = mem_wmask_q; 
+    assign rvfi_mem_rdata = mem_rdata_q;
+    assign rvfi_mem_wdata = mem_wdata_q;
 
-    assign rvfi_pc_wdata  = jump ? jump_addr : PC_ID;
-    assign rvfi_pc_rdata  = PC_EX;
-    assign rvfi_rd_wdata  = res_EX;
+    assign rvfi_pc_wdata  = pc_wdata_q;// jump ? jump_addr : PC_ID;
+    assign rvfi_pc_rdata  = PC_MEM;//PC_EX;
+    assign rvfi_rd_wdata  = res_MEM;//res_EX;
     assign rvfi_rs1_rdata = rs1_value_EX;
     assign rvfi_rs2_rdata = rs2_value_EX;
 
