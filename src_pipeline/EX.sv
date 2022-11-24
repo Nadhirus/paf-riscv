@@ -95,9 +95,13 @@ module EX(input logic[4:0] rs1,
                 endcase
             end
 
-        else if (opcode_EX == LOAD || opcode_EX == STORE || opcode_EX == LUI  || opcode_EX == JALR)
+        else if (opcode_EX == LOAD || opcode_EX == STORE || opcode_EX == LUI)
             begin
                 res <= Op1 + Op2;
+            end
+        else if(opcode_EX == JALR)
+            begin
+                res <= (Op1 + Op2) & ~32'b11;
             end
         else
             res <= imm;

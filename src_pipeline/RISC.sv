@@ -191,13 +191,6 @@ localparam REG_OP   = 7'b0110011;
 
 
 
-    always @* begin
-        if(reset_n) begin
-            assert(i_address[1:0] == 0);
-        end
-    end
-
-
     //The IF module is composed of a Program Counter, which output
     //is given the ROM and propagated to ID
     //logic[31:0] IF_out; obsolete, was redundant with PC_IF
