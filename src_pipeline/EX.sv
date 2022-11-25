@@ -1,4 +1,6 @@
-module EX(input logic[4:0] rs1,
+module EX(
+          input clk, reset_n,
+          input logic[4:0] rs1,
           input logic[4:0] rs2,
           output logic[31:0] rs1_value,
           output logic[31:0] rs2_value,
@@ -14,7 +16,7 @@ module EX(input logic[4:0] rs1,
           output logic[31:0] x2_EX
         );
     
-    logic[31:0] regs[31:0];
+    reg [31:0] regs[31:0];
     logic [31:0] Op1;
     logic [31:0] Op2;
     
@@ -26,8 +28,8 @@ module EX(input logic[4:0] rs1,
         regs[0] = 0;
 
 
-    assign rs1_value = regs[rs1];
-    assign rs2_value = regs[rs2];
+    assign rs1_value = Op1;
+    assign rs2_value = x2_EX;
 
     always @(*)
     begin
@@ -56,15 +58,26 @@ module EX(input logic[4:0] rs1,
             x2_EX <= regs[rs2];
     end
 
+
+// store: [rs1 + sx(imm)] <= rs2
     always @(*)
         if(opcode_EX == IMM_OP || opcode_EX == LUI || opcode_EX == JALR || opcode_EX == LOAD || opcode_EX == STORE)
                 Op2 <= imm;
             else
                 Op2 <= x2_EX;
 
-    always @(*)
-        if (rd_WB != 0)
+    always @(posedge clk) begin
+        if(!reset_n) begin
+            int i;
+            for(i = 0; i < 32; i++)
+                regs [i] <= '0;
+        end
+        else begin
+            if (rd_WB != 0)
             regs [rd_WB] <= res_WB;
+        end
+
+    end
 
     `include "BRCTYPE.vh"
     `include "ALUTYPE.vh"

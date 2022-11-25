@@ -4,12 +4,13 @@ module register #(parameter width=32) (
     input logic[width-1:0] D,
     output logic[width-1:0] Q);
 
-    always @(posedge clk)
+    always @(posedge clk) begin
+
         if(RAZ)
             Q <= 0;
         else
             Q <= D;
-
+    end
 endmodule
 
 
@@ -110,7 +111,7 @@ localparam REG_OP   = 7'b0110011;
     logic[31:0] PC_MEM;
     logic[31:0] PC_WB;
     register #(.width(32)) PC_to_ID(.clk(clk), .D(PC_IF), .Q(PC_ID), .RAZ(kill_to_ID));
-    register #(.width(32)) PC_to_EX(.clk(clk), .D(PC_ID), .Q(PC_EX), .RAZ(kill_to_EX));
+    register #(.width(32)) PC_to_EX(.clk(clk), .D(PC_ID), .Q(PC_EX), .RAZ(1'b0));
     register #(.width(32)) PC_to_MEM(.clk(clk), .D(PC_EX), .Q(PC_MEM), .RAZ(kill_to_MEM));
     register #(.width(32)) PC_to_WB(.clk(clk), .D(PC_MEM), .Q(PC_WB), .RAZ(kill_to_WB));
 
@@ -175,17 +176,25 @@ localparam REG_OP   = 7'b0110011;
     logic[31:0] res_MEM;
     logic[31:0] res_WB;
     register #(.width(32)) res_to_MEM(.clk(clk), .D(res_EX), .Q(res_MEM), .RAZ(kill_to_MEM));
-    register #(.width(32)) res_to_WB(.clk(clk), .D(res_MEM), .Q(res_WB), .RAZ(kill_to_WB));
+    //register #(.width(32)) res_to_WB(.clk(clk), .D(res_MEM), .Q(res_WB), .RAZ(kill_to_WB));
+
+    always @(posedge clk) begin
+        if(!reset_n)
+            res_WB <= '0;
+        else
+            res_WB <= res_MEM;
+
+    end
 
 
     wire [31:0] jump_addr = (opcode_IFEX == JALR) ? res_EX : PC_EX + imm_IFEX;
-    wire jump = (
+    wire jump = !ill_ID && (
         opcode_IFEX == AUIPC 
      || opcode_IFEX == JAL
      || opcode_IFEX == JALR
      ||(opcode_IFEX == BRANCH && res_EX[0]));
 
-
+    logic jump_q;
 
 
 
@@ -223,6 +232,8 @@ localparam REG_OP   = 7'b0110011;
     //The EX module is composed of a Register Bench and an ALU
     logic[31:0] xd_WB;
     EX EX_module    (
+            .clk(clk),
+            .reset_n(reset_n),
             .rs1(rs1_EX),
             .rs2(rs2_EX),
             .rs1_value(rs1_value_EX),
@@ -230,7 +241,7 @@ localparam REG_OP   = 7'b0110011;
             .rd_WB(rd_WB),
             .rd_MEM(rd_MEM),
             .res_MEM(res_MEM),
-            .res_WB(xd_WB),
+            .res_WB(res_WB),
             .imm(imm_IFEX),
             .op_EX(op_EX),
             .opcode_EX(opcode_IFEX),
@@ -268,9 +279,12 @@ localparam REG_OP   = 7'b0110011;
 `ifdef RVFI_TRACE
     logic [63:0] ins_order;
 
-    wire ins_valid = !kill_to_EX;
+    wire pre_ins_valid = !kill_to_EX;
 
-    wire  [63:0] next_ins_order = ins_valid ? (ins_order + 64'h1) : ins_order;
+    logic ins_valid;
+
+
+    wire  [63:0] next_ins_order = (ins_valid || trap) ? (ins_order + 64'h1) : ins_order;
     //wire  [63:0] next_ins_order = ins_order + 64'h1;
 
     always_ff @(posedge clk) begin
@@ -280,7 +294,7 @@ localparam REG_OP   = 7'b0110011;
             ins_order <= next_ins_order;
     end
 
-    logic        valid_q;
+    logic        valid_q, valid_q2;
     logic        trap_q;
     logic [31:0] mem_addr_q;
     logic [3:0]  mem_rmask_q;
@@ -293,8 +307,13 @@ localparam REG_OP   = 7'b0110011;
     logic [4:0]  rs1_q;
     logic [4:0]  rs2_q;
 
+    wire  [31:0] insn_ID = i_data_read;
+    logic [31:0] insn_EX;
+    logic [31:0] insn_MEM;
+
     always_ff @(posedge clk) begin
         if(!reset_n) begin
+            ins_valid   <= '0;
             valid_q     <= '0;
             trap_q      <= '0;
             mem_addr_q  <= '0;
@@ -307,13 +326,16 @@ localparam REG_OP   = 7'b0110011;
             rs2_rdata_q <= '0;
             rs1_q       <= '0;
             rs2_q       <= '0;
+            insn_EX     <= '0;
+            insn_MEM    <= '0;
         end
         else  begin
-            valid_q     <= ins_valid;
-            trap_q      <= '0;
+            ins_valid   <= pre_ins_valid;
+            valid_q     <= ins_valid || (trap && !trap_q);
+            trap_q      <= trap;
             mem_addr_q  <= d_address;
-            mem_rmask_q <= (opcode_MEM == STORE) ? 4'hf : 4'h0;
-            mem_wmask_q <= (opcode_MEM == LOAD)  ? 4'hf : 4'h0;
+            mem_rmask_q <= (opcode_EX == STORE) ? 4'hf : 4'h0;
+            mem_wmask_q <= (opcode_EX == LOAD)  ? 4'hf : 4'h0;
             mem_rdata_q <= d_data_read;
             mem_wdata_q <= d_data_write;
             pc_wdata_q  <= jump ? jump_addr : PC_ID;
@@ -321,31 +343,34 @@ localparam REG_OP   = 7'b0110011;
             rs2_rdata_q <= rs2_value_EX;
             rs1_q       <= rs1_EX;
             rs2_q       <= rs2_EX;
+            insn_EX     <= insn_ID;
+            insn_MEM    <= insn_EX;
         end
     end
 
-    assign rvfi_valid     = valid_q;//!kill_to_EX;
+    assign rvfi_valid     = valid_q;
     assign rvfi_order     = ins_order;
-    assign rvfi_insn      = '0;// ???
+    assign rvfi_insn      = insn_MEM;
     assign rvfi_trap      = trap_q;
     assign rvfi_halt      = trap_q;
     assign rvfi_intr      = 0; // no trap handler
     assign rvfi_mode      = 1;
     assign rvfi_ixl       = 0;
-    assign rvfi_rs1_addr  = rs1_q;//rs1_EX;
-    assign rvfi_rs2_addr  = rs2_q;//rs2_EX;
-    assign rvfi_rd_addr   = rd_MEM;//rd_EX;
+    assign rvfi_rs1_addr  = rs1_q;
+    assign rvfi_rs2_addr  = rs2_q;
+    
+    assign rvfi_rd_addr   = (opcode_MEM == BRANCH || opcode_MEM == STORE) ? 0 : rd_MEM;
     assign rvfi_mem_addr  = mem_addr_q;
     assign rvfi_mem_rmask = mem_rmask_q;
     assign rvfi_mem_wmask = mem_wmask_q; 
     assign rvfi_mem_rdata = mem_rdata_q;
     assign rvfi_mem_wdata = mem_wdata_q;
 
-    assign rvfi_pc_wdata  = pc_wdata_q;// jump ? jump_addr : PC_ID;
-    assign rvfi_pc_rdata  = PC_MEM;//PC_EX;
-    assign rvfi_rd_wdata  = res_MEM;//res_EX;
-    assign rvfi_rs1_rdata = rs1_value_EX;
-    assign rvfi_rs2_rdata = rs2_value_EX;
+    assign rvfi_pc_wdata  = pc_wdata_q;
+    assign rvfi_pc_rdata  = PC_MEM;
+    assign rvfi_rd_wdata  = (rvfi_rd_addr == 0) ? 0 : res_MEM;
+    assign rvfi_rs1_rdata = rs1_rdata_q;
+    assign rvfi_rs2_rdata = rs2_rdata_q;
 
     assign rvfi_csr_minstret_wdata = '0;
     assign rvfi_csr_minstret_wmask = '0;
