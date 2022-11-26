@@ -1,22 +1,3 @@
-module register #(parameter width=32) ( 
-    input logic clk,
-    input logic RAZ,
-    input logic[width-1:0] D,
-    output logic[width-1:0] Q);
-
-    always @(posedge clk) begin
-
-        if(RAZ)
-            Q <= 0;
-        else
-            Q <= D;
-    end
-endmodule
-
-
-
-
-
 module RISC #(
         localparam NRET = 1,
         localparam ILEN = 32,
@@ -88,18 +69,22 @@ localparam REG_OP   = 7'b0110011;
     //KILL signals for setting internal registers to 0 and create
     //bubble.
     logic kill_to_EX;
-    logic kill_to_ID = 0;
-    wire kill_to_MEM = 0;
-    wire kill_to_WB = 0;
+    wire ex_stall;
 
     wire ill_ID;
+    logic ill_EX;
+
+    wire trap_EX;
+
     logic trap;
+
+    wire trap_trigger_EX = (ill_EX || trap_EX) && !ex_stall && !kill_to_EX_q;
 
     always_ff @(posedge clk) begin
         if(!reset_n)
             trap <= 0;
         else begin
-            if(ill_ID)
+            if(trap_trigger_EX)
                 trap <= 1;
         end
     end
@@ -110,10 +95,6 @@ localparam REG_OP   = 7'b0110011;
     logic[31:0] PC_EX;
     logic[31:0] PC_MEM;
     logic[31:0] PC_WB;
-    register #(.width(32)) PC_to_ID(.clk(clk), .D(PC_IF), .Q(PC_ID), .RAZ(kill_to_ID));
-    register #(.width(32)) PC_to_EX(.clk(clk), .D(PC_ID), .Q(PC_EX), .RAZ(1'b0));
-    register #(.width(32)) PC_to_MEM(.clk(clk), .D(PC_EX), .Q(PC_MEM), .RAZ(kill_to_MEM));
-    register #(.width(32)) PC_to_WB(.clk(clk), .D(PC_MEM), .Q(PC_WB), .RAZ(kill_to_WB));
 
     //Value of rd must be propagated follow the instruction from
     //ID to WB and then return to EX.
@@ -121,80 +102,133 @@ localparam REG_OP   = 7'b0110011;
     logic[4:0] rd_EX;
     logic[4:0] rd_MEM;
     logic[4:0] rd_WB;
-    register #(.width(5)) rd_to_EX(.clk(clk), .D(rd_ID), .Q(rd_EX), .RAZ(kill_to_EX));
-    register #(.width(5)) rd_to_MEM(.clk(clk), .D(rd_EX), .Q(rd_MEM), .RAZ(kill_to_MEM));
-    register #(.width(5)) rd_to_WB(.clk(clk), .D(rd_MEM), .Q(rd_WB), .RAZ(kill_to_WB));
+
 
     //Value of opcode and op must follow the instruction from ID to
     //WB. It does not have to return to EX for writing in rd, as
     //rd is set to 0 by the decoder if the instruction does not have
     //any writeback.
     logic[6:0] opcode_ID;
-    //ID gives the opcode to IF and EX (jump instructions)
-    logic[6:0] opcode_IFEX;
+    logic[6:0] opcode_EX;
     logic[6:0] opcode_MEM;
     logic[6:0] opcode_WB;
-    register #(.width(7)) opcode_to_IFEX(.clk(clk), .D(opcode_ID), .Q(opcode_IFEX), .RAZ(kill_to_EX));
-    register #(.width(7)) opcode_to_MEM(.clk(clk), .D(opcode_IFEX), .Q(opcode_MEM), .RAZ(kill_to_MEM));
-    register #(.width(7)) opcode_to_WB(.clk(clk), .D(opcode_MEM), .Q(opcode_WB), .RAZ(kill_to_WB));
-    
+
     logic[3:0] op_ID;
     logic[3:0] op_EX;
-    logic[3:0] op_MEM;
-    logic[3:0] op_WB;
-    register #(.width(4)) op_to_EX(.clk(clk), .D(op_ID), .Q(op_EX), .RAZ(kill_to_EX));
-    register #(.width(4)) op_to_MEM(.clk(clk), .D(op_EX), .Q(op_MEM), .RAZ(kill_to_MEM));
-    register #(.width(4)) op_to_WB(.clk(clk), .D(op_MEM), .Q(op_WB), .RAZ(kill_to_WB));
+
+
+    always @(posedge clk) begin
+        if(!reset_n) begin
+            PC_ID  <= '0;
+            {ill_EX, opcode_EX, PC_EX,  rd_EX}  <= '0;
+            {opcode_MEM, PC_MEM, rd_MEM} <= '0;
+            {opcode_WB, PC_WB,  rd_WB}  <= '0;
+        end else begin
+            if(!ex_stall) begin
+                PC_ID <= PC_IF;
+
+                if(kill_to_EX)
+                    {ill_EX, opcode_EX, op_EX, PC_EX, rd_EX}  <= '0;
+                else
+                    {ill_EX, opcode_EX, op_EX, PC_EX, rd_EX} <= {ill_ID, opcode_ID, op_ID, PC_ID, rd_ID};
+
+                {opcode_MEM, PC_MEM, rd_MEM} <= {opcode_EX, PC_EX,  rd_EX};
+            end
+            //{opcode_MEM, PC_MEM, rd_MEM} <= {opcode_EX, PC_EX,  rd_EX};
+            else
+                {opcode_MEM, PC_MEM, rd_MEM} <= '0;
+
+            {opcode_WB, PC_WB,  rd_WB}  <= {opcode_MEM, PC_MEM, rd_MEM};
+        end
+    end
+
+
+
 
     //Value of rs1, rs2, imm must be driven from ID to EX
     logic[4:0] rs1_ID;
     logic[4:0] rs1_EX;
-    register #(.width(5)) rs1_to_EX(.clk(clk), .D(rs1_ID), .Q(rs1_EX), .RAZ(kill_to_EX));
 
     wire [31:0] rs1_value_EX;
     wire [31:0] rs2_value_EX;
 
     logic[4:0] rs2_ID;
     logic[4:0] rs2_EX;
-    register #(.width(5)) rs2_to_EX(.clk(clk), .D(rs2_ID), .Q(rs2_EX), .RAZ(kill_to_EX));
-   
     //The immediate is also passed to IF for jump instructions
     logic[31:0] imm_ID;
     logic[31:0] imm_IFEX;
-    register #(.width(32)) imm_to_IFEX(.clk(clk), .D(imm_ID), .Q(imm_IFEX), .RAZ(kill_to_EX));
 
 
     //Value of x2 (value of register r2)
     //must be driven from EX to MEM
     logic[31:0] x2_EX;
     logic[31:0] x2_MEM;
-    register #(.width(32)) x2_to_MEM(.clk(clk), .D(x2_EX), .Q(x2_MEM), .RAZ(kill_to_MEM));
 
     //res is passed from EX to WB. The passage from EX to IF is
     //asynchronous
     logic[31:0] res_EX;
     logic[31:0] res_MEM;
     logic[31:0] res_WB;
-    register #(.width(32)) res_to_MEM(.clk(clk), .D(res_EX), .Q(res_MEM), .RAZ(kill_to_MEM));
-    //register #(.width(32)) res_to_WB(.clk(clk), .D(res_MEM), .Q(res_WB), .RAZ(kill_to_WB));
+
 
     always @(posedge clk) begin
-        if(!reset_n)
+        if(!reset_n) begin
+            rs1_EX  <= '0;
+            rs2_EX  <= '0;
+            imm_IFEX<= '0;
+            x2_MEM  <= '0;
+            res_MEM <= '0;
             res_WB <= '0;
-        else
-            res_WB <= res_MEM;
+        end else begin
+            if(kill_to_EX)
+                {rs1_EX, rs2_EX, imm_IFEX} <= '0;
+            else if(!ex_stall) begin
+                rs1_EX   <= rs1_ID;
+                rs2_EX   <= rs2_ID;
+                imm_IFEX <= imm_ID;
+            end
 
+
+            if(!ex_stall)
+            {x2_MEM, res_MEM} <= {x2_EX, res_EX};
+            else
+                {x2_MEM, res_MEM} <= '0;
+
+            res_WB  <= res_MEM;
+        end
     end
 
 
-    wire [31:0] jump_addr = (opcode_IFEX == JALR) ? res_EX : PC_EX + imm_IFEX;
-    wire jump = !ill_ID && (
-        opcode_IFEX == AUIPC 
-     || opcode_IFEX == JAL
-     || opcode_IFEX == JALR
-     ||(opcode_IFEX == BRANCH && res_EX[0]));
+    wire [31:0] jump_addr_EX;
+    wire jump_EX;
+    
+    assign jump_addr_EX = (opcode_EX == JALR) ? res_EX : PC_EX + imm_IFEX;
 
-    logic jump_q;
+    assign jump_EX = !ex_stall && !trap && (
+       opcode_EX == JAL
+     || opcode_EX == JALR
+     ||(opcode_EX == BRANCH && res_EX[0]));
+
+
+
+    logic ex_stall_q;
+
+    always @(posedge clk) begin
+        if(!reset_n)
+            ex_stall_q <= '0;
+        else
+            ex_stall_q <= ex_stall;
+    end
+
+    // stall IF-ID-EX stage if a memory access is succeded by an instruction
+    // that uses the memory result 
+    assign ex_stall = (opcode_MEM == LOAD) && (rs1_EX == rd_MEM || rs2_EX == rd_MEM);
+
+
+
+
+
+    assign kill_to_EX = jump_EX || trap || trap_trigger_EX;
 
 
 
@@ -206,15 +240,16 @@ localparam REG_OP   = 7'b0110011;
     IF IF_module    (
             .clk(clk),
             .reset_n(reset_n),
-            .jump(jump),
-            .jumpaddr(jump_addr),
+            .stall(ex_stall),
+            .jump(jump_EX),
+            .jumpaddr(jump_addr_EX),
             .i_addr(PC_IF)
     );
 
-    always @(*)
-        begin
-            i_address <= PC_IF;
-        end
+    assign i_address = PC_IF;
+
+
+
 
     //The ID module is composed of an asynchronous decoder
     ID ID_module    (
@@ -241,16 +276,18 @@ localparam REG_OP   = 7'b0110011;
             .rd_WB(rd_WB),
             .rd_MEM(rd_MEM),
             .res_MEM(res_MEM),
-            .res_WB(res_WB),
+            .res_WB(xd_WB),
             .imm(imm_IFEX),
             .op_EX(op_EX),
-            .opcode_EX(opcode_IFEX),
+            .opcode_EX(opcode_EX),
+            .PC(PC_EX),
 
             .res(res_EX),
-            .x2_EX(x2_EX)
+            .x2_EX(x2_EX),
+
+            .trap(trap_EX)
     );
 
-    assign kill_to_EX = jump || trap;
 
     //The MEM module is mostly linking signals
     MEM MEM_module  (
@@ -279,12 +316,27 @@ localparam REG_OP   = 7'b0110011;
 `ifdef RVFI_TRACE
     logic [63:0] ins_order;
 
-    wire pre_ins_valid = !kill_to_EX;
+    logic kill_to_EX_q;
 
-    logic ins_valid;
+    always_ff @(posedge clk) begin
+        if(!reset_n)
+            kill_to_EX_q <= '0;
+        else
+            kill_to_EX_q <= kill_to_EX;
+    end
+
+    
+
+    wire ins_trap = trap_trigger_EX;
 
 
-    wire  [63:0] next_ins_order = (ins_valid || trap) ? (ins_order + 64'h1) : ins_order;
+    //wire pre_ins_valid = !kill_to_EX && !ex_stall;
+    wire ins_valid = 
+            !kill_to_EX_q && ((!trap || ins_trap) && !ex_stall) && (opcode_EX != 0 || ill_EX);
+
+
+
+    wire  [63:0] next_ins_order = (ins_valid) ? (ins_order + 64'h1) : ins_order;
     //wire  [63:0] next_ins_order = ins_order + 64'h1;
 
     always_ff @(posedge clk) begin
@@ -294,32 +346,55 @@ localparam REG_OP   = 7'b0110011;
             ins_order <= next_ins_order;
     end
 
+    
+    wire [31:0] pc_wdata = jump_EX ? jump_addr_EX : PC_ID;
+
+
+
     logic        valid_q, valid_q2;
     logic        trap_q;
     logic [31:0] mem_addr_q;
     logic [3:0]  mem_rmask_q;
     logic [3:0]  mem_wmask_q;
-    logic [31:0] mem_rdata_q;
     logic [31:0] mem_wdata_q;
     logic [31:0] pc_wdata_q;
     logic [31:0] rs1_rdata_q;
     logic [31:0] rs2_rdata_q;
     logic [4:0]  rs1_q;
     logic [4:0]  rs2_q;
+    logic [63:0] ins_order_q;
 
     wire  [31:0] insn_ID = i_data_read;
     logic [31:0] insn_EX;
-    logic [31:0] insn_MEM;
+    logic [31:0] insn_EX_q;
+
+    logic [6:0]  opcode_EX_q;
+    logic [4:0]  rd_q;
+    logic [31:0] res_q;
+
+    logic        valid_q2;
+    logic        trap_q2;
+    logic [31:0] pc_wdata_q2;
+    logic [31:0] rs1_rdata_q2;
+    logic [31:0] rs2_rdata_q2;
+    logic [4:0] rs1_q2;
+    logic [4:0] rs2_q2;
+    logic [31:0] insn_EX2;
+    logic [31:0] insn_EX_q2;
+    logic [6:0] opcode_EX_q2;
+    logic [4:0] rd_q2;
+    logic [31:0] res_q2;
+
+    logic [31:0] pc_EX_q;
+    logic [31:0] pc_EX_q2;
 
     always_ff @(posedge clk) begin
         if(!reset_n) begin
-            ins_valid   <= '0;
             valid_q     <= '0;
             trap_q      <= '0;
             mem_addr_q  <= '0;
             mem_rmask_q <= '0;
             mem_wmask_q <= '0;
-            mem_rdata_q <= '0;
             mem_wdata_q <= '0;
             pc_wdata_q  <= '0;
             rs1_rdata_q <= '0;
@@ -327,50 +402,95 @@ localparam REG_OP   = 7'b0110011;
             rs1_q       <= '0;
             rs2_q       <= '0;
             insn_EX     <= '0;
-            insn_MEM    <= '0;
+            insn_EX_q   <= '0;
+            opcode_EX_q <= '0;
+            ins_order_q <= '0;
+            rd_q <= '0;
+            res_q<= '0;
+            pc_EX_q <= '0;
+            valid_q2     <= '0;
+            trap_q2      <= '0;
+            pc_wdata_q2  <= '0;
+            rs1_rdata_q2 <= '0;
+            rs2_rdata_q2 <= '0;
+            rs1_q2       <= '0;
+            rs2_q2       <= '0;
+            insn_EX2     <= '0;
+            insn_EX_q2   <= '0;
+            opcode_EX_q2 <= '0;
+            rd_q2        <= '0;
+            res_q2       <= '0;
+            pc_EX_q2     <= '0;
         end
         else  begin
-            ins_valid   <= pre_ins_valid;
-            valid_q     <= ins_valid || (trap && !trap_q);
-            trap_q      <= trap;
+            ins_order_q  <= ins_order;
+            valid_q2     <= valid_q;
+            trap_q2      <= trap_q;
+            pc_wdata_q2  <= pc_wdata_q;
+            rs1_rdata_q2 <= rs1_rdata_q;
+            rs2_rdata_q2 <= rs2_rdata_q;
+            rs1_q2       <= rs1_q;
+            rs2_q2       <= rs2_q;
+            insn_EX2     <= insn_EX;
+            insn_EX_q2   <= insn_EX_q;
+            opcode_EX_q2 <= opcode_EX_q;
+            rd_q2        <= rd_q;
+            res_q2       <= res_q;
+            pc_EX_q2     <= pc_EX_q;
+
+            valid_q     <= ins_valid;
+            trap_q      <= ins_trap;
             mem_addr_q  <= d_address;
-            mem_rmask_q <= (opcode_EX == STORE) ? 4'hf : 4'h0;
-            mem_wmask_q <= (opcode_EX == LOAD)  ? 4'hf : 4'h0;
-            mem_rdata_q <= d_data_read;
+            mem_rmask_q <= (opcode_MEM == LOAD) ? 4'hf : 4'h0;
+            mem_wmask_q <= (opcode_MEM == STORE)  ? 4'hf : 4'h0;
             mem_wdata_q <= d_data_write;
-            pc_wdata_q  <= jump ? jump_addr : PC_ID;
+            pc_wdata_q  <= pc_wdata;
             rs1_rdata_q <= rs1_value_EX;
             rs2_rdata_q <= rs2_value_EX;
             rs1_q       <= rs1_EX;
             rs2_q       <= rs2_EX;
-            insn_EX     <= insn_ID;
-            insn_MEM    <= insn_EX;
+            opcode_EX_q <= opcode_EX;
+
+            pc_EX_q <= PC_EX;
+
+            rd_q <= rd_EX;
+            res_q <= res_EX;
+
+            if(!ex_stall) begin
+                insn_EX     <= insn_ID;
+            end
+
+            insn_EX_q    <= insn_EX;
         end
     end
 
-    assign rvfi_valid     = valid_q;
-    assign rvfi_order     = ins_order;
-    assign rvfi_insn      = insn_MEM;
-    assign rvfi_trap      = trap_q;
-    assign rvfi_halt      = trap_q;
+    wire [31:0] rd_wdata = (opcode_EX_q2 == LOAD) ? (d_data_read)
+                  : (opcode_EX_q2 == JAL || opcode_EX_q2 == JALR) ? (PC_WB + 32'h4)
+                  : res_q2;
+
+    assign rvfi_valid     = valid_q2;
+    assign rvfi_order     = ins_order_q;
+    assign rvfi_insn      = insn_EX_q2;
+    assign rvfi_trap      = trap_q2;
+    assign rvfi_halt      = trap_q2;
     assign rvfi_intr      = 0; // no trap handler
     assign rvfi_mode      = 1;
     assign rvfi_ixl       = 0;
-    assign rvfi_rs1_addr  = rs1_q;
-    assign rvfi_rs2_addr  = rs2_q;
+    assign rvfi_rs1_addr  = rs1_q2;
+    assign rvfi_rs2_addr  = rs2_q2;
     
-    assign rvfi_rd_addr   = (opcode_MEM == BRANCH || opcode_MEM == STORE) ? 0 : rd_MEM;
+    assign rvfi_rd_addr   = (opcode_EX_q2 == BRANCH || opcode_EX_q2 == STORE) ? 0 : rd_q2;
     assign rvfi_mem_addr  = mem_addr_q;
     assign rvfi_mem_rmask = mem_rmask_q;
     assign rvfi_mem_wmask = mem_wmask_q; 
-    assign rvfi_mem_rdata = mem_rdata_q;
+    assign rvfi_mem_rdata = d_data_read;
     assign rvfi_mem_wdata = mem_wdata_q;
 
-    assign rvfi_pc_wdata  = pc_wdata_q;
-    assign rvfi_pc_rdata  = PC_MEM;
-    assign rvfi_rd_wdata  = (rvfi_rd_addr == 0) ? 0 : res_MEM;
-    assign rvfi_rs1_rdata = rs1_rdata_q;
-    assign rvfi_rs2_rdata = rs2_rdata_q;
+    assign rvfi_pc_wdata  = pc_wdata_q2;
+    assign rvfi_pc_rdata  = pc_EX_q2;
+    assign rvfi_rd_wdata  = (rvfi_rd_addr == 0) ? 0 : rd_wdata;
+    assign rvfi_rs1_rdata = rs1_rdata_q2;
+    assign rvfi_rs2_rdata = rs2_rdata_q2;
 
     assign rvfi_csr_minstret_wdata = '0;
     assign rvfi_csr_minstret_wmask = '0;

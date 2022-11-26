@@ -11,9 +11,9 @@ module MEM  (
     `include "OPTYPE.vh"
 
     always @(*) begin
-        d_data_write <= x2;
-        d_address <= res;
-        d_write_enable <= (opcode == STORE);
+        d_data_write = x2;
+        d_address = res;
+        d_write_enable = (opcode == STORE);
     end
 
 endmodule

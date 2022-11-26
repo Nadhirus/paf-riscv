@@ -15,10 +15,10 @@ module WB   (
     //a WB.
     always @(*)
         if (opcode == LOAD)
-            xd <= d_data_read;
+            xd = d_data_read;
         else if (opcode == AUIPC || opcode == JAL || opcode == JALR)
-            xd <= PC + 32'd4;
+            xd = PC + 32'd4;
         else
-            xd <= res;
+            xd = res;
 
 endmodule

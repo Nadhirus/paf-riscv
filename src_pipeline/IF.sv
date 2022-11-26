@@ -2,6 +2,8 @@ module IF   (
     input logic clk,
     input logic reset_n,
 
+    input logic stall,
+
     input logic jump,
     input logic[31:0] jumpaddr,
 
@@ -20,14 +22,19 @@ module IF   (
 
     always @(*)
         if (jump)
-            i_addr <= jumpaddr;
+            i_addr = jumpaddr;
         else
-            i_addr <= PC;
+            i_addr = PC;
 
     always @(posedge clk or negedge reset_n)
         if(!reset_n)
             PC <= 32'h00000000;
-        else
-            PC <= i_addr + 32'd4;
+        else begin
+            if(stall)
+                PC <= i_addr;
+            else
+                PC <= i_addr + 32'd4;
+
+        end
 
 endmodule
