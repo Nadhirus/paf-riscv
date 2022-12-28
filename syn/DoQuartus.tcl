@@ -57,12 +57,20 @@ if [file exists ${MyProj}.rbf]  {
 
 
 # ---- Project Assignments (Verilog source files)
-set_global_assignment -name SYSTEMVERILOG_FILE ../src/DE1_SoC.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src/gene_reset.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src/DLX.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src/ram.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src/rom.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src/seven_seg.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/DE1_SoC.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/gene_reset.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/RISC.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/IF.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/ID.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/EX.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/MEM.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/WB.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/ctz.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/cpop.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/clmul.sv
+
+set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/ram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/rom.sv
 
 # TODO: Ajouter ici tous les fichiers SystemVerilog de votre projet
 
@@ -82,7 +90,7 @@ set_global_assignment -name MAX_CORE_JUNCTION_TEMP 85
 set_global_assignment -name EDA_DESIGN_ENTRY_SYNTHESIS_TOOL "<None>"
 set_global_assignment -name AUTO_ENABLE_SMART_COMPILE ON
 set_global_assignment -name SMART_RECOMPILE ON
-set_global_assignment -name NUM_PARALLEL_PROCESSORS ALL
+set_global_assignment -name NUM_PARALLEL_PROCESSORS 4
 set_global_assignment -name CYCLONEII_RESERVE_NCEO_AFTER_CONFIGURATION "USE AS REGULAR IO"
 set_global_assignment -name HDL_MESSAGE_LEVEL LEVEL1
 
@@ -426,9 +434,9 @@ set_location_assignment PIN_D11 -to VGA_VS
 set_global_assignment -name OPTIMIZE_POWER_DURING_FITTING OFF
 set_global_assignment -name TIMEQUEST_MULTICORNER_ANALYSIS ON
 set_global_assignment -name TIMEQUEST_DO_CCPP_REMOVAL OFF
-set_global_assignment -name NUMBER_OF_PATHS_TO_REPORT 0
-set_global_assignment -name NUMBER_OF_DESTINATION_TO_REPORT 0
-set_global_assignment -name NUMBER_OF_SOURCES_PER_DESTINATION_TO_REPORT 0
+set_global_assignment -name NUMBER_OF_PATHS_TO_REPORT 5
+set_global_assignment -name NUMBER_OF_DESTINATION_TO_REPORT 5
+set_global_assignment -name NUMBER_OF_SOURCES_PER_DESTINATION_TO_REPORT 5
 
 set_global_assignment -name SDC_FILE Timing.sdc
 

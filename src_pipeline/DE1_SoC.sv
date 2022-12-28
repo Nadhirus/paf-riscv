@@ -68,6 +68,11 @@
       );
 
 
+
+   // @todo add write strobe support to ram.sv 
+   wire [3:0] ram_wstrb;
+
+
    // Instanciation du processeur
    RISC risc
      (
@@ -78,6 +83,7 @@
       .d_data_write   ( ram_wdata       ),
       .d_write_enable ( ram_we          ),
       .d_data_valid   ( ram_rdata_valid ),
+      .d_data_wstrb   ( ram_wstrb       ),
       .i_address      ( rom_addr        ),
       .i_data_read    ( rom_rdata       ),
       .i_data_valid   ( rom_rdata_valid )
