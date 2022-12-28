@@ -10,6 +10,7 @@ module RISC #(
     output logic [31:0] d_address,
     input logic [31:0]  d_data_read,
     output logic [31:0] d_data_write,
+    output logic [ 3:0] d_data_wstrb,
     output logic        d_write_enable,
     input logic         d_data_valid,
     
@@ -70,6 +71,8 @@ localparam REG_OP   = 7'b0110011;
     //bubble.
     logic kill_to_EX;
     wire ex_stall;
+    wire ext_ex_stall;
+    wire stall_req_EX;
 
     wire ill_ID;
     logic ill_EX;
@@ -113,8 +116,28 @@ localparam REG_OP   = 7'b0110011;
     logic[6:0] opcode_MEM;
     logic[6:0] opcode_WB;
 
-    logic[3:0] op_ID;
-    logic[3:0] op_EX;
+    logic[5:0] op_ID;
+    logic[5:0] op_EX;
+    
+    wire [1:0] barrel_shift_ID;
+    logic[1:0] barrel_shift_EX;
+
+    // LW, LH, LB signals
+    wire [1:0] ldsz_ID;
+    wire       ldsx_ID;
+
+    wire  [1:0] ldshift_EX;
+    logic [1:0] ldsz_EX;
+    logic       ldsx_EX;
+
+    logic [1:0] ldshift_MEM;
+    logic [1:0] ldsz_MEM;
+    logic       ldsx_MEM;
+
+    logic [1:0] ldshift_WB;
+    logic [1:0] ldsz_WB;
+    logic       ldsx_WB;
+    
 
 
     always @(posedge clk) begin
@@ -123,20 +146,31 @@ localparam REG_OP   = 7'b0110011;
             {ill_EX, opcode_EX, PC_EX,  rd_EX}  <= '0;
             {opcode_MEM, PC_MEM, rd_MEM} <= '0;
             {opcode_WB, PC_WB,  rd_WB}  <= '0;
+            {ldsz_EX, ldsx_EX}     <= '0;
+            {ldshift_MEM, ldsz_MEM, ldsx_MEM}  <= '0;
+            {ldshift_WB, ldsz_WB, ldsx_WB}     <= '0;
+
         end else begin
             if(!ex_stall) begin
                 PC_ID <= PC_IF;
 
+
+                {ldsz_EX, ldsx_EX}     <= {ldsz_ID, ldsx_ID};
+
                 if(kill_to_EX)
-                    {ill_EX, opcode_EX, op_EX, PC_EX, rd_EX}  <= '0;
+                    {barrel_shift_EX, ill_EX, opcode_EX, op_EX, PC_EX, rd_EX}  <= '0;
                 else
-                    {ill_EX, opcode_EX, op_EX, PC_EX, rd_EX} <= {ill_ID, opcode_ID, op_ID, PC_ID, rd_ID};
+                    {barrel_shift_EX, ill_EX, opcode_EX, op_EX, PC_EX, rd_EX} 
+                 <= {barrel_shift_ID, ill_ID, opcode_ID, op_ID, PC_ID, rd_ID};
 
                 {opcode_MEM, PC_MEM, rd_MEM} <= {opcode_EX, PC_EX,  rd_EX};
             end
-            //{opcode_MEM, PC_MEM, rd_MEM} <= {opcode_EX, PC_EX,  rd_EX};
             else
                 {opcode_MEM, PC_MEM, rd_MEM} <= '0;
+
+
+            {ldshift_MEM, ldsz_MEM, ldsx_MEM}  <= {ldshift_EX, ldsz_EX, ldsx_EX};
+            {ldshift_WB, ldsz_WB, ldsx_WB}     <= {ldshift_MEM, ldsz_MEM, ldsx_MEM};
 
             {opcode_WB, PC_WB,  rd_WB}  <= {opcode_MEM, PC_MEM, rd_MEM};
         end
@@ -222,7 +256,9 @@ localparam REG_OP   = 7'b0110011;
 
     // stall IF-ID-EX stage if a memory access is succeded by an instruction
     // that uses the memory result 
-    assign ex_stall = (opcode_MEM == LOAD) && (rs1_EX == rd_MEM || rs2_EX == rd_MEM);
+    // or if the execute stage takes more than one cycle
+    assign ext_ex_stall = (opcode_MEM == LOAD) && (rs1_EX == rd_MEM || rs2_EX == rd_MEM);
+    assign ex_stall = stall_req_EX || ext_ex_stall;
 
 
 
@@ -261,6 +297,9 @@ localparam REG_OP   = 7'b0110011;
             .imm(imm_ID),
             .opcode(opcode_ID),
             .op(op_ID),
+            .barrel_shift(barrel_shift_ID),
+            .ldsz(ldsz_ID), 
+            .ldsx(ldsx_ID),
             .ill(ill_ID)
     );
 
@@ -273,6 +312,8 @@ localparam REG_OP   = 7'b0110011;
             .rs2(rs2_EX),
             .rs1_value(rs1_value_EX),
             .rs2_value(rs2_value_EX),
+            .ext_stall(ext_ex_stall),
+            .barrel_shift(barrel_shift_EX),
             .rd_WB(rd_WB),
             .rd_MEM(rd_MEM),
             .res_MEM(res_MEM),
@@ -281,10 +322,14 @@ localparam REG_OP   = 7'b0110011;
             .op_EX(op_EX),
             .opcode_EX(opcode_EX),
             .PC(PC_EX),
+            .ldsz(ldsz_EX), 
+            .ldshift(ldshift_EX),
+
 
             .res(res_EX),
             .x2_EX(x2_EX),
 
+            .stall_req(stall_req_EX),
             .trap(trap_EX)
     );
 
@@ -294,6 +339,7 @@ localparam REG_OP   = 7'b0110011;
             .x2(x2_MEM),
             .res(res_MEM),
             .opcode(opcode_MEM),
+            .load_shift(ldshift_MEM),
             
             .d_data_write(d_data_write),
             .d_address(d_address),
@@ -308,6 +354,9 @@ localparam REG_OP   = 7'b0110011;
             .res(res_WB),
             .PC(PC_WB),
             .opcode(opcode_WB),
+            .load_shift(ldshift_WB),
+            .load_size(ldsz_WB),
+            .load_sign_extend(ldsx_WB),
 
             .xd(xd_WB)
     );
@@ -351,10 +400,9 @@ localparam REG_OP   = 7'b0110011;
 
 
 
-    logic        valid_q, valid_q2;
+    logic        valid_q;
     logic        trap_q;
     logic [31:0] mem_addr_q;
-    logic [3:0]  mem_rmask_q;
     logic [3:0]  mem_wmask_q;
     logic [31:0] mem_wdata_q;
     logic [31:0] pc_wdata_q;
@@ -387,27 +435,39 @@ localparam REG_OP   = 7'b0110011;
 
     logic [31:0] pc_EX_q;
     logic [31:0] pc_EX_q2;
+    
+
+// 00 -> 0001
+// 01 -> 0011
+// 11 -> 1111
+    wire [3:0] load_mask = {ldsz_WB[1], ldsz_WB[1], ldsz_WB[0], 1'b1};
+    wire [3:0] store_mask= {ldsz_MEM[1], ldsz_MEM[1], ldsz_MEM[0], 1'b1};
+
+
+    wire [3:0] mem_rmask = (opcode_WB == LOAD) ? load_mask << ldshift_WB : 0;
+
+    assign d_data_wstrb = (opcode_MEM == STORE) ? store_mask << ldshift_MEM : 0;
+
 
     always_ff @(posedge clk) begin
         if(!reset_n) begin
-            valid_q     <= '0;
-            trap_q      <= '0;
-            mem_addr_q  <= '0;
-            mem_rmask_q <= '0;
-            mem_wmask_q <= '0;
-            mem_wdata_q <= '0;
-            pc_wdata_q  <= '0;
-            rs1_rdata_q <= '0;
-            rs2_rdata_q <= '0;
-            rs1_q       <= '0;
-            rs2_q       <= '0;
-            insn_EX     <= '0;
-            insn_EX_q   <= '0;
-            opcode_EX_q <= '0;
-            ins_order_q <= '0;
-            rd_q <= '0;
-            res_q<= '0;
-            pc_EX_q <= '0;
+            valid_q      <= '0;
+            trap_q       <= '0;
+            mem_addr_q   <= '0;
+            mem_wmask_q  <= '0;
+            mem_wdata_q  <= '0;
+            pc_wdata_q   <= '0;
+            rs1_rdata_q  <= '0;
+            rs2_rdata_q  <= '0;
+            rs1_q        <= '0;
+            rs2_q        <= '0;
+            insn_EX      <= '0;
+            insn_EX_q    <= '0;
+            opcode_EX_q  <= '0;
+            ins_order_q  <= '0;
+            rd_q         <= '0;
+            res_q        <= '0;
+            pc_EX_q      <= '0;
             valid_q2     <= '0;
             trap_q2      <= '0;
             pc_wdata_q2  <= '0;
@@ -441,8 +501,7 @@ localparam REG_OP   = 7'b0110011;
             valid_q     <= ins_valid;
             trap_q      <= ins_trap;
             mem_addr_q  <= d_address;
-            mem_rmask_q <= (opcode_MEM == LOAD) ? 4'hf : 4'h0;
-            mem_wmask_q <= (opcode_MEM == STORE)  ? 4'hf : 4'h0;
+            mem_wmask_q <= d_data_wstrb;
             mem_wdata_q <= d_data_write;
             pc_wdata_q  <= pc_wdata;
             rs1_rdata_q <= rs1_value_EX;
@@ -464,9 +523,7 @@ localparam REG_OP   = 7'b0110011;
         end
     end
 
-    wire [31:0] rd_wdata = (opcode_EX_q2 == LOAD) ? (d_data_read)
-                  : (opcode_EX_q2 == JAL || opcode_EX_q2 == JALR) ? (PC_WB + 32'h4)
-                  : res_q2;
+    wire [31:0] rd_wdata = xd_WB;
 
     assign rvfi_valid     = valid_q2;
     assign rvfi_order     = ins_order_q;
@@ -481,10 +538,10 @@ localparam REG_OP   = 7'b0110011;
     
     assign rvfi_rd_addr   = (opcode_EX_q2 == BRANCH || opcode_EX_q2 == STORE) ? 0 : rd_q2;
     assign rvfi_mem_addr  = mem_addr_q;
-    assign rvfi_mem_rmask = mem_rmask_q;
-    assign rvfi_mem_wmask = mem_wmask_q; 
     assign rvfi_mem_rdata = d_data_read;
+    assign rvfi_mem_rmask = mem_rmask;
     assign rvfi_mem_wdata = mem_wdata_q;
+    assign rvfi_mem_wmask = mem_wmask_q; 
 
     assign rvfi_pc_wdata  = pc_wdata_q2;
     assign rvfi_pc_rdata  = pc_EX_q2;

@@ -21,7 +21,15 @@ module ID   (
     //the operation that is executed. The op brings complementary
     //information
     output logic[6:0] opcode,
-    output logic[3:0] op,
+    output logic[5:0] op,
+    output logic[1:0] barrel_shift,
+
+    // 0: undefined
+    // 1: load byte
+    // 2: load half
+    // 3: load word
+    output [1:0] ldsz,
+    output       ldsx,
 
     // invalid instruction
     output logic      ill
@@ -32,9 +40,12 @@ module ID   (
 
     assign opcode = instr[6:0];
 
-
-    wire [2:0]func3 = instr[14:12];
-    wire [6:0]func7 = instr[31:25];
+ 
+    wire [2:0] func3 = instr[14:12];
+    wire [6:0] func7 = instr[31:25];
+    
+    // for B extension
+    wire [4:0] func5 = instr[24:20];
 
     always_comb begin
         // check instruction illness
@@ -64,9 +75,121 @@ module ID   (
             end
             default: ill = 1;
         endcase
+
+
+        // ZBA
+        barrel_shift = 0;
+        if(opcode == REG_OP && func7 == 7'b0010000) begin
+            ill = 0;
+            // Zba (sh1add, sh2add, sh3add)
+            case(func3) 
+                3'b010: barrel_shift = 1;
+                3'b100: barrel_shift = 2;
+                3'b110: barrel_shift = 3;
+                default: ill = 1;
+            endcase
+        end
+
+        // ZBB
+        if(opcode == REG_OP && func7 == 7'b 0100000) begin
+            ill = 0;
+            case(func3)
+                3'b111: /* andn */ ;
+                3'b110: /* orn  */ ;
+                3'b100: /* xnor */ ;
+                3'b000: /* sub  */ ;
+                3'b101: /* srai */ ;
+
+                default: ill = 1;
+            endcase
+        end
+        else if(opcode == IMM_OP && func3[1:0] == 2'b01) begin
+            if(func7 == 7'b 0010100) begin
+                ill = 0;
+                casez({func5, func3})
+                    8'b 00111_101: /* orc.b */ ;
+                    8'b zzzzz_001: /* bseti */ ;
+                    default: ill = 1;
+                endcase
+            end
+            else if(func7 == 7'b 0110100) begin
+                ill = 0;
+                casez({func5, func3})
+                    8'b 11000_101: /* rev8 */ ;
+                    8'b zzzzz_001: /* binvi */;
+                    default: ill = 1;
+                endcase
+            end
+            else if(func7 == 7'b 0110000) begin
+                ill = 0;
+                // clz, ctz, cpop, sext.b, sext.h
+                case(func5)
+                    5'b 00000: /* clz    */;
+                    5'b 00001: /* ctz    */;
+                    5'b 00010: /* cpop   */;
+                    5'b 00100: /* sext.b */;
+                    5'b 00101: /* sext.h */;
+                    default: ill = 1;
+                endcase
+                if(func3 != 3'b001)
+                    ill = 1;
+            end
+            else if(func7 == 7'b 0100100) begin
+                ill = 0;
+                case(func3)
+                    3'b 001: /* bclri */;
+                    3'b 101: /* bexti */;
+                    default: ill = 1;
+                endcase
+            end
+        end
+        else if(opcode == REG_OP) begin
+            if(func7 == 7'b 0000101) begin
+                ill = 0;
+                // clmul
+                case(func3)
+                    3'b 001: /* clmul  */;
+                    3'b 011: /* clmulh */;
+                    3'b 010: /* clmulr */;
+                    default: ill = 1;
+                endcase
+            end
+            else if(func7 == 7'b 0100100) begin
+                ill = 0;
+                case(func3)
+                    3'b 001: /* bclr */;
+                    3'b 101: /* bext */;
+                    default: ill = 1;
+                endcase 
+            end
+            else if(func7 == 7'b 0010100) begin
+                ill = 0;
+                case(func3)
+                    3'b 001: /* bset */;
+                    default: ill = 1;
+                endcase
+            end
+            else if(func7 == 7'b 0110100) begin
+                ill = 0;
+                case(func3) 
+                    3'b 001: /* binv */;
+                    default: ill = 1;
+                endcase
+            end
+        end
     end
 
-    // @todo load store ill on miss word alignment
+
+    always_comb begin
+        case(func3)
+            3'b 000: /* LB  / SB  */ {ldsx,ldsz} = 3'b1_00;
+            3'b 001: /* LH  / SH  */ {ldsx,ldsz} = 3'b1_01;
+            3'b 010: /* LW  / SW  */ {ldsx,ldsz} = 3'b0_11;
+            3'b 100: /* LBU / SBU */ {ldsx,ldsz} = 3'b0_00;
+            3'b 101: /* LHU / SHU */ {ldsx,ldsz} = 3'b0_01;
+            default: {ldsx,ldsz} = 3'b0_00;
+        endcase
+    end
 
     //op is the concatenation of a characteristic bit of funct7
     //if it exists and funct3. When associated with opcode,
@@ -75,16 +198,52 @@ module ID   (
     //static position, we prefer to differentiate the
     //3 operations having a 1 as funct7.
     //THERE IS NO DEFAULT OP.
-    always @(*)
-        if ((opcode == IMM_OP && 
-             (instr[14:12] == 3'b101)) ||
-            (opcode == REG_OP &&
-             (instr[14:12] == 3'b000 ||
-              instr[14:12] == 3'b101))     )
-            op = {instr[30], instr[14:12]};
-        else
-            op = {1'b0, instr[14:12]};
 
+
+    always @(*) begin
+        if (opcode == IMM_OP) begin
+            if(func3[1:0] == 2'b01)
+                op = {1'b0, func7[4], func7[5], func3};
+                // SRAI
+            else
+                op = {3'b0, func3};
+        end
+        else if(opcode == REG_OP) begin
+            op = {1'b0, func7[4], func7[5], func3};
+        end
+        else
+            op = {3'b0, func3};
+
+        if((opcode == IMM_OP && func3[1:0] == 2'b01) || opcode == REG_OP) begin
+            
+            // Zba, Zbb, Zbc, Zbs
+            if(func7 == 7'b 0010000)
+                op = 0; // ADD (with barrel shifter)
+            else if(func7 == 7'b 0110000) 
+                op[2:0] = func5[2:0];
+            else if(func7 == 7'b 0010100) begin
+                if(func3[2])// orc.b
+                    op[2:0] = 3'b111;
+                else begin // bset
+                    op[2:0] = 3'b001;
+                    op[5] = 1'b1;
+                end
+            end
+            else if(func7 == 7'b 0110100) begin
+                if(func3[2]) // rev8
+                    op[2:0] = 3'b011;
+                else begin// binv
+                    op[2:0] = 3'b001;
+                    op[5] = 1'b1;
+                end
+            end
+
+            if(func7 == 7'b 0000101
+            || func7 == 7'b 0100100)
+                op[5] = 1'b1; // bclr / bclri / bext / bexti / clmul / clmulh / clmulr
+        end
+    end
+    
     //The three registers are both at static positions, but not
     //used by every instruction. If an instruction does not
     //require some register, it is set to 0 by default.

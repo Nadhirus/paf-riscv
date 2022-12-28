@@ -1,10 +1,10 @@
 `ifndef BRCTYPE
-    localparam BEQ   = 4'b0000;
-    localparam BNE   = 4'b0001;
-    localparam BLT   = 4'b0100;
-    localparam BGE   = 4'b0101;
-    localparam BLTU  = 4'b0110;
-    localparam BGEU  = 4'b0111;
-    localparam BNONE = 4'b0010;
+    localparam BEQ   = 6'b 000000;
+    localparam BNE   = 6'b 000001;
+    localparam BLT   = 6'b 000100;
+    localparam BGE   = 6'b 000101;
+    localparam BLTU  = 6'b 000110;
+    localparam BGEU  = 6'b 000111;
+    localparam BNONE = 6'b 000010;
 `define BRCTYPE
 `endif
