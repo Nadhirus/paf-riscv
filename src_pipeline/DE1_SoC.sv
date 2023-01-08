@@ -106,6 +106,8 @@
         ledr[6] <= ^rom_addr;
         ledr[7] <= ^rom_rdata;
         ledr[8] <= rom_rdata_valid;
+
+        hex0 = {1'b0, ram_wstrb};
       end
 
 endmodule
