@@ -97,6 +97,14 @@ localparam REG_OP   = 7'b0110011;
         end
     end
 
+
+    always_ff @(posedge clk) begin
+        if(!reset_n)
+            kill_to_EX_q <= '0;
+        else
+            kill_to_EX_q <= kill_to_EX;
+    end
+
     //Value of PC must be propagated from IF module all the way to WB module
     logic[31:0] PC_IF;
     logic[31:0] PC_ID;
@@ -371,12 +379,6 @@ localparam REG_OP   = 7'b0110011;
     logic [63:0] ins_order;
 
 
-    always_ff @(posedge clk) begin
-        if(!reset_n)
-            kill_to_EX_q <= '0;
-        else
-            kill_to_EX_q <= kill_to_EX;
-    end
 
     
 
