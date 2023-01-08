@@ -89,4 +89,23 @@
       .i_data_valid   ( rom_rdata_valid )
       );
 
+
+  // set outputs in function of the processor state
+  // so that quartus does not optimize the whole 
+  // system out
+    always@(posedge clock_50 or negedge reset_n)
+      if(!reset_n)
+        ledr <= '0;
+      else begin
+        ledr[0] <= ^ram_addr;
+        ledr[1] <= ^ram_rdata;
+        ledr[2] <= ^ram_wdata;
+        ledr[3] <= ram_we;
+        ledr[4] <= ram_rdata_valid;
+        ledr[5] <= ^ram_wstrb;
+        ledr[6] <= ^rom_addr;
+        ledr[7] <= ^rom_rdata;
+        ledr[8] <= rom_rdata_valid;
+      end
+
 endmodule
