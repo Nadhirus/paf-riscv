@@ -16,7 +16,7 @@ wire  [3:0] x_parts  [0:7];
 
 generate
     genvar i;
-    for(i = 0; i < 8; i++) begin: x_parts
+    for(i = 0; i < 8; i++) begin: gen_x_parts
         assign x_parts[i] = x[4 * i +:4];
     end
 endgenerate
