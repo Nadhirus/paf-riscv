@@ -180,8 +180,9 @@ module EX(
 
     generate
         genvar i;
-        for(i = 0; i < 32; i++)
+        for(i = 0; i < 32; i++) begin: gen_Op1_rev
             assign Op1_rev[i] = Op1[31 - i];
+        end
     endgenerate
 
 

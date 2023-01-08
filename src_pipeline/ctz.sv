@@ -16,8 +16,9 @@ wire  [3:0] x_parts  [0:7];
 
 generate
     genvar i;
-    for(i = 0; i < 8; i++)
+    for(i = 0; i < 8; i++) begin:
         assign x_parts[i] = x[4 * i +:4];
+    end
 endgenerate
 
 assign res = ctz3;
@@ -45,7 +46,6 @@ always_comb begin
             4'b 1110: /* 1 */ ctz0[i] = 3'b 001;
             4'b 1111: /* 0 */ ctz0[i] = 3'b 000;
         endcase
-
 
 
     for(int i = 0; i < 4; i++)

@@ -1,8 +1,4 @@
-module RISC #(
-        localparam NRET = 1,
-        localparam ILEN = 32,
-        localparam XLEN = 32
-    ) (
+module RISC (
     input logic            clk,
     input logic            reset_n,
     
@@ -55,6 +51,13 @@ module RISC #(
     output [NRET * 64   - 1 : 0] rvfi_csr_mcycle_rdata
     `endif
     );
+
+
+localparam NRET = 1;
+localparam ILEN = 32;
+localparam XLEN = 32;
+
+
 localparam LUI      = 7'b0110111;
 localparam AUIPC    = 7'b0010111;
 localparam JAL      = 7'b1101111;

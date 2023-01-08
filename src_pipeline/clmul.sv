@@ -34,7 +34,7 @@ logic [STATE_BITS - 1:0] state;
 
 generate
     genvar i;
-    for(i = 0; i < IT_PER_CYCLE; i++) begin
+    for(i = 0; i < IT_PER_CYCLE; i++) begin:
         assign mul_parts[i] = acc_A << i;
     end
 endgenerate
