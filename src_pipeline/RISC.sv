@@ -73,6 +73,8 @@ localparam REG_OP   = 7'b0110011;
     //KILL signals for setting internal registers to 0 and create
     //bubble.
     logic kill_to_EX;
+    logic kill_to_EX_q;
+
     wire ex_stall;
     wire ext_ex_stall;
     wire stall_req_EX;
@@ -368,7 +370,6 @@ localparam REG_OP   = 7'b0110011;
 `ifdef RVFI_TRACE
     logic [63:0] ins_order;
 
-    logic kill_to_EX_q;
 
     always_ff @(posedge clk) begin
         if(!reset_n)
