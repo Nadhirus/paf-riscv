@@ -30,3 +30,8 @@ Found bugs:
   so the PC could get a 4n+2 value, which would trigger an
   exception if JALed with a 4n+2 value. even if the spec does not
   trap as the resulting pc would be 4-aligned.
+
+
+observations on the paf core:
+- the instruction decode stage does not decode the opcode & func
+

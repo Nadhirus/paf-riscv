@@ -57,10 +57,10 @@ module ram
    // 11110000      // Loads at address 0 by default
    // 10101111
    // @2 00001111
-   initial
-     begin
-	$readmemh("ram_data.txt", ram);
-     end
+  // initial
+  //   begin
+	//$readmemh("ram_data.txt", ram);
+  //   end
 
    always @ (posedge clk)
      begin
