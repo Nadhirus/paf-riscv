@@ -9,8 +9,7 @@ module clmul(
     input [31:0] A, 
     input [31:0] B,
 
-    output [63:0] res, 
-    output [63:0] res_r
+    output [64:0] res
 );
 
 wire [63:0] A_ext = {32'b0, A};
@@ -38,7 +37,6 @@ generate
         assign mul_parts[i] = acc_A << i;
     end
 endgenerate
-
 logic [63:0] acc_next;
 always_comb begin
     acc_next = acc;
@@ -81,21 +79,5 @@ always_ff @(posedge clk)
 assign eoc = state == 0 && !start;
 assign res = acc_next;
 
-
-
-
-logic [63:0] its_r [0:31];
-assign res_r = its_r[31];
-
-always_comb begin
-    its_r[0] = B[31] ? A_ext : 0;
-
-    for(int i = 1; i < 32; i++) begin
-        if(B[31 - i])
-            its_r[i] = its_r[i - 1] ^ (A_ext << i);
-        else
-            its_r[i] = its_r[i - 1];
-    end
-end
 
 endmodule

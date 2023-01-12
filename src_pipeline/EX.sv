@@ -115,8 +115,7 @@ module EX(
     //////////////////////////////////
     ///// Bit manip instructions /////
     //////////////////////////////////
-    wire [63:0] clmul;
-    wire [63:0] clmulr;
+    wire [64:0] clmul;
     wire [ 5:0] cpop;
     wire [ 5:0] ctz;
     wire [ 5:0] clz;
@@ -154,8 +153,8 @@ module EX(
         .A     (Op1    ),
         .B     (Op2    ),
         .res   (clmul  ),
-        .res_r (clmulr )  
     );
+    
     cpop cpop_i(
         .x  (Op1 ),
         .res(cpop)
@@ -225,9 +224,9 @@ module EX(
                     ORCB : res = orcb32(Op1);
                     REV8 : res = rev8_32(Op1);
 
-                    CLMUL: res = clmul [31: 0];
-                    CLMULH:res = clmul [63:32];
-                    CLMULR:res = clmulr[31: 0];
+                    CLMUL: res = clmul[31: 0];
+                    CLMULH:res = clmul[63:32];
+                    CLMULR:res = clmul[62:31];
                     BCLR : res = Op1 & ~(1 << Op2[4:0]);
                     BEXT : res = (Op1 >> Op2[4:0]) & 1;
                     BINV : res = Op1 ^ (1 << Op2[4:0]);
