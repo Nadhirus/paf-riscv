@@ -37,6 +37,7 @@ module ID   (
 
 
     `include "OPTYPE.vh"
+    `include "ALUTYPE.vh"
 
     assign opcode = instr[6:0];
 
@@ -122,16 +123,19 @@ module ID   (
             end
             else if(func7 == 7'b 0110000) begin
                 ill = 0;
-                // clz, ctz, cpop, sext.b, sext.h
-                case(func5)
-                    5'b 00000: /* clz    */;
-                    5'b 00001: /* ctz    */;
-                    5'b 00010: /* cpop   */;
-                    5'b 00100: /* sext.b */;
-                    5'b 00101: /* sext.h */;
-                    default: ill = 1;
-                endcase
-                if(func3 != 3'b001)
+                // clz, ctz, cpop, sext.b, sext.h, rori
+                if(func3 == 3'b 001)
+                    case(func5)
+                        5'b 00000: /* clz    */;
+                        5'b 00001: /* ctz    */;
+                        5'b 00010: /* cpop   */;
+                        5'b 00100: /* sext.b */;
+                        5'b 00101: /* sext.h */;
+                        default: ill = 1;
+                    endcase
+                else if(func3 == 3'b 101)
+                    ill = 0;// rori
+                else
                     ill = 1;
             end
             else if(func7 == 7'b 0100100) begin
@@ -151,6 +155,10 @@ module ID   (
                     3'b 001: /* clmul  */;
                     3'b 011: /* clmulh */;
                     3'b 010: /* clmulr */;
+                    3'b 110: /* max    */;
+                    3'b 111: /* maxu   */;
+                    3'b 100: /* min    */;
+                    3'b 101: /* minu   */;
                     default: ill = 1;
                 endcase
             end
@@ -175,6 +183,21 @@ module ID   (
                     3'b 001: /* binv */;
                     default: ill = 1;
                 endcase
+            end
+            else if(func7 == 7'b 0110000) begin
+                ill = 0;
+                case(func3) 
+                    3'b 001: /* rol */;
+                    3'b 101: /* ror */;
+                    default: ill = 1;
+                endcase
+            end
+            else if(func7 == 7'b 0000100) begin
+                // zext.h
+                if(func3 == 3'b 100 && rs2 == 5'b0)
+                    ill = 0;
+                else
+                    ill = 1;
             end
         end
     end
@@ -219,8 +242,18 @@ module ID   (
             // Zba, Zbb, Zbc, Zbs
             if(func7 == 7'b 0010000)
                 op = 0; // ADD (with barrel shifter)
-            else if(func7 == 7'b 0110000) 
-                op[2:0] = func5[2:0];
+            else if(func7 == 7'b 0110000) begin
+                casez ({opcode == IMM_OP, func3, func5})
+                    9'b z_101_zzzzz: op = ROR; // ror / rori
+                    9'b 0_001_zzzzz: op = ROL; // rol
+                    9'b 1_001_00000: op = CLZ;   
+                    9'b 1_001_00001: op = CTZ;   
+                    9'b 1_001_00010: op = CPOP;  
+                    9'b 1_001_00100: op = SEXTB;
+                    9'b 1_001_00101: op = SEXTH;
+                    default: op = ADD;
+                endcase
+            end
             else if(func7 == 7'b 0010100) begin
                 if(func3[2])// orc.b
                     op[2:0] = 3'b111;
@@ -237,10 +270,26 @@ module ID   (
                     op[5] = 1'b1;
                 end
             end
+            else if(func7 == 7'b 0000101) begin
+                casez (func3)
+                    7'b 001: op = CLMUL;
+                    7'b 011: op = CLMULH;
+                    7'b 010: op = CLMULR;
 
-            if(func7 == 7'b 0000101
-            || func7 == 7'b 0100100)
-                op[5] = 1'b1; // bclr / bclri / bext / bexti / clmul / clmulh / clmulr
+                    7'b 110: op = MAX;
+                    7'b 111: op = MAXU;
+                    7'b 100: op = MIN;
+                    7'b 101: op = MINU;
+
+                    default: op = ADD;
+                endcase 
+            end
+            else if(func7 == 7'b 0000100) begin
+                op = ZEXTH;
+            end
+
+            if(func7 == 7'b 0100100)
+                op[5] = 1'b1; // bclr / bclri / bext / bexti
         end
     end
     

@@ -9,7 +9,7 @@ module clmul(
     input [31:0] A, 
     input [31:0] B,
 
-    output [64:0] res
+    output [63:0] res
 );
 
 wire [63:0] A_ext = {32'b0, A};

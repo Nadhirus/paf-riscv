@@ -115,7 +115,7 @@ module EX(
     //////////////////////////////////
     ///// Bit manip instructions /////
     //////////////////////////////////
-    wire [64:0] clmul;
+    wire [63:0] clmul;
     wire [ 5:0] cpop;
     wire [ 5:0] ctz;
     wire [ 5:0] clz;
@@ -152,7 +152,7 @@ module EX(
         .eoc   (clmul_done),
         .A     (Op1    ),
         .B     (Op2    ),
-        .res   (clmul  ),
+        .res   (clmul  )
     );
     
     cpop cpop_i(
@@ -185,16 +185,39 @@ module EX(
     endgenerate
 
 
+    wire less          = $signed(Op1) <  $signed(Op2);
+    wire greater_or_eq = $signed(Op1) >= $signed(Op2);
+
+    wire less_u          = Op1 <  Op2;
+    wire greater_or_eq_u = Op1 >= Op2;
+
+
+    // multiplex the shifters operators to only use two
+    // shifters for every shift operation.
+    wire [4:0] shl_op2 = (op_EX == ROR) ? (32 - Op2[4:0]) : Op2[4:0];
+    wire [4:0] shr_op2 = (op_EX == ROL) ? (32 - Op2[4:0]) : Op2[4:0];
+    
+    wire shr_arithmetic = op_EX == SRA;
+
+    wire [31:0] shl = Op1 << shl_op2;
+    logic [31:0] shr;
+
+    always_comb
+        if(shr_arithmetic)
+            shr = $signed(Op1) >>> shr_op2;
+        else
+            shr = Op1 >> shr_op2;
+
     always @(*) begin
         trap = 0;
         //Register Compare
         if (opcode_EX == BRANCH) begin
             res = (op_EX == BEQ && Op1 == Op2 ||
                    op_EX == BNE && Op1 != Op2 ||
-                   op_EX == BLT && $signed(Op1) < $signed(Op2)  ||
-                   op_EX == BGE && $signed(Op1) >= $signed(Op2)  ||
-                   op_EX == BLTU && Op1 < Op2 ||
-                   op_EX == BGEU && Op1 >= Op2) ? 1 : 0;
+                   op_EX == BLT && less  ||
+                   op_EX == BGE && greater_or_eq  ||
+                   op_EX == BLTU && less_u ||
+                   op_EX == BGEU && greater_or_eq_u) ? 1 : 0;
 
             trap = (imm[1:0] != 0) && res[0];
         end
@@ -203,12 +226,12 @@ module EX(
             begin
                 case(op_EX)
                     SUB :  res = Op1 - Op2;
-                    SLL :  res = Op1 << Op2[4:0];
-                    SLT :  res = ($signed(Op1) < $signed(Op2)) ? 1 : 0;
-                    SLTU:  res = (Op1 < Op2) ? 1 : 0;
+                    SLL :  res = shl;
+                    SLT :  res = less ? 1 : 0;
+                    SLTU:  res = (less_u) ? 1 : 0;
                     XOR :  res = Op1 ^ Op2;
-                    SRL :  res = Op1 >> Op2[4:0];
-                    SRA :  res = $signed(Op1) >>> Op2[4:0];
+                    SRL :  res = shr;
+                    SRA :  res = shr;
                     OR  :  res = Op1 | Op2;
                     AND :  res = Op1 & Op2;
                      
@@ -221,12 +244,21 @@ module EX(
                     CPOP : res = {26'h0, cpop};
                     SEXTB: res = $signed(Op1[ 7:0]);
                     SEXTH: res = $signed(Op1[15:0]);
+                    ZEXTH: res = {16'h0, Op1[15:0]};
                     ORCB : res = orcb32(Op1);
                     REV8 : res = rev8_32(Op1);
 
                     CLMUL: res = clmul[31: 0];
                     CLMULH:res = clmul[63:32];
                     CLMULR:res = clmul[62:31];
+
+                    MAX  : res = less   ? Op2 : Op1;
+                    MAXU : res = less_u ? Op2 : Op1;
+                    MIN  : res = less   ? Op1 : Op2;
+                    MINU : res = less_u ? Op1 : Op2;
+                    ROR  : res = shl | shr;
+                    ROL  : res = shl | shr;
+
                     BCLR : res = Op1 & ~(1 << Op2[4:0]);
                     BEXT : res = (Op1 >> Op2[4:0]) & 1;
                     BINV : res = Op1 ^ (1 << Op2[4:0]);
