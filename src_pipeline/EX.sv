@@ -199,7 +199,12 @@ module EX(
     
     wire shr_arithmetic = op_EX == SRA;
 
-    wire [31:0] shl = Op1 << shl_op2;
+
+    wire [31:0] shl_op1 = (op_EX == BCLR ||
+                           op_EX == BINV ||
+                           op_EX == BSET) ? 1 : Op1;
+
+    wire [31:0] shl = shl_op1 << shl_op2;
     logic [31:0] shr;
 
     always_comb
@@ -207,6 +212,8 @@ module EX(
             shr = $signed(Op1) >>> shr_op2;
         else
             shr = Op1 >> shr_op2;
+
+            
 
     always @(*) begin
         trap = 0;
@@ -260,7 +267,7 @@ module EX(
                     ROL  : res = shl | shr;
 
                     BCLR : res = Op1 & ~(1 << Op2[4:0]);
-                    BEXT : res = (Op1 >> Op2[4:0]) & 1;
+                    BEXT : res = {31'b0, shr[0]};
                     BINV : res = Op1 ^ (1 << Op2[4:0]);
                     BSET : res = Op1 | (1 << Op2[4:0]);
 
