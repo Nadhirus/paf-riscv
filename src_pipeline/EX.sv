@@ -266,10 +266,10 @@ module EX(
                     ROR  : res = shl | shr;
                     ROL  : res = shl | shr;
 
-                    BCLR : res = Op1 & ~(1 << Op2[4:0]);
+                    BCLR : res = Op1 & ~shl;
                     BEXT : res = {31'b0, shr[0]};
-                    BINV : res = Op1 ^ (1 << Op2[4:0]);
-                    BSET : res = Op1 | (1 << Op2[4:0]);
+                    BINV : res = Op1 ^ shl;
+                    BSET : res = Op1 | shl;
 
 
                     default /*ADD*/ : res = sum;
