@@ -2,16 +2,15 @@
 
 TB = DE1_SoC_tb
 
-simu:
+sim:
 	vsim $(TB)
 
 compile:
-	vlog +acc +define+SIMULATION $(TB).sv ../src_pipeline/*.sv
+	vlog +acc +define+SIMULATION $(TB).sv ../rtl/*.sv
 
 work:
 	vlib work
 
-# nettoyage 
 clean : 
 	rm -rf work *~
 	rm -f transcript vsim.wlf
