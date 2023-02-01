@@ -57,20 +57,20 @@ if [file exists ${MyProj}.rbf]  {
 
 
 # ---- Project Assignments (Verilog source files)
-set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/DE1_SoC.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/gene_reset.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/RISC.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/IF.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/ID.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/EX.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/MEM.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/WB.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/ctz.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/cpop.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/clmul.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/DE1_SoC.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/gene_reset.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/RISC.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/IF.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/ID.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/EX.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/MEM.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/WB.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/ctz.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/cpop.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/clmul.sv
 
-set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/ram.sv
-set_global_assignment -name SYSTEMVERILOG_FILE ../src_pipeline/rom.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/ram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE ../rtl/rom.sv
 
 # TODO: Ajouter ici tous les fichiers SystemVerilog de votre projet
 
