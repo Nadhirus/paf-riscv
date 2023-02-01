@@ -28,8 +28,8 @@ module ID   (
     // 1: load byte
     // 2: load half
     // 3: load word
-    output [1:0] ldsz,
-    output       ldsx,
+    output logic [1:0] ldsz,
+    output logic       ldsx,
 
     // invalid instruction
     output logic      ill
