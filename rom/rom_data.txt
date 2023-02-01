@@ -1,11 +1,11 @@
-01906093
-02c06113
-000001b3
-00117213
-40115113
-00020463
-001181b3
-00109093
-fe0116e3
-003000b3
-0000006f
+01906093   //  ORI x1, x0, 25
+02c06113   //  ORI x2, x0, 44
+000001b3   //  fast_multiply: ADD  x3, x0, x0
+00117213   //  next_digit: ANDI x4, x2, 1
+40115113   //      SRAI x2, x2, 1
+00020463   //      BEQ  x4, x0, skip
+001181b3   //      ADD  x3, x3, x1
+00109093   //  skip: SLLI x1, x1, 1
+fe0116e3   //      BNE  x2, x0, next_digit
+003000b3   //      ADD  x1, x0, x3
+0000006f   //  end: JAL x0, end
