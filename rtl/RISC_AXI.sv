@@ -1,4 +1,10 @@
-module RISC_axi (
+module RISC_axi 
+#(
+// pour le moment je l'ai mis ici mais normalement on dois le mettre dans les OPTYPES.vh
+parameter NUM_CORES = 4, 
+parameter MASTER_ID_WIDTH = $clog2(NUM_CORES)
+)
+(
     input logic            clk,
     input logic            reset_n,
 
@@ -32,6 +38,11 @@ module RISC_axi (
     input  logic           m_axi_rvalid,
     output logic           m_axi_rready
 
+    // LR/SC signals 
+  //  0 = normal, 1 = load-reserve (LR), 2 = store-conditional (SC)
+  input  logic [1:0]                   axi_exclusive_op,
+  // Master identifier (assume one reservation set per core)
+  input  logic [MASTER_ID_WIDTH-1:0]     axi_master_id
     `ifdef RVFI_TRACE
     ,
     // RVFI Trace Signals
