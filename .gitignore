@@ -2,3 +2,7 @@ simulation/work/*
 work/*
 *.swp
 simulation/transcript
+*.vcd
+*.ini
+*.wlf
+*.out

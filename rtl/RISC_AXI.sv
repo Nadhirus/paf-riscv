@@ -36,7 +36,7 @@ parameter MASTER_ID_WIDTH = $clog2(NUM_CORES)
     input  logic [31:0]    m_axi_rdata,
     input  logic [1:0]     m_axi_rresp,
     input  logic           m_axi_rvalid,
-    output logic           m_axi_rready
+    output logic           m_axi_rready,
 
     // LR/SC signals 
   //  0 = normal, 1 = load-reserve (LR), 2 = store-conditional (SC)
