@@ -222,46 +222,32 @@ module ram_axi_tb;
 
 
 
-	assert property (bus_lock_active)
-	else $error("Bus lock violation: axi_awready deasserted before lock is released");
+	P1 : assert property (bus_lock_active)
 
-	assert property (exclusive_access)
-	else $error("Exclusive access violation: Multiple cores attempted locked transactions");
+	P2 : assert property (exclusive_access)
 
-	assert property (no_overlapping_access)
-	else $error("Overlapping locked transactions detected");
+	P3 : assert property (no_overlapping_access)
 	
-	assert property (atomic_rmw_sequence)
-	else $error("Atomic RMW violation: Transaction sequence is incorrect.");
+	P4 : assert property (atomic_rmw_sequence)
 	
-	assert property (no_interleaved_transactions)
-	else $error("Interleaved transactions detected during a locked access.");
+	P5 : assert property (no_interleaved_transactions)
 
-	assert property (lock_release_after_completion)
-	else $error("Lock was not released after the transaction completed.");
+	P6 : assert property (lock_release_after_completion)
 	
-	assert property (store_conditional_check)
-	else $error("Store-Conditional failed unexpectedly.");
+	P7 : assert property (store_conditional_check)
 	  
-	assert property (no_deadlock)
-	else $error("Possible deadlock detected: lock held too long.");
+	P8 : assert property (no_deadlock)
 	
-	assert property (store_conditional_follows_lr)
-	else $error("Store-Conditional issued without prior Load-Reserved.");
+	P9 : assert property (store_conditional_follows_lr)
 	
-	assert property (lr_reads_correct_data)
-	else $error("Load-Reserved read incorrect data.");
+	P10 : assert property (lr_reads_correct_data)
 	
-	assert property (sc_fails_on_reservation_loss)
-	else $error("Store-Conditional succeeded despite reservation loss.");
+	P11 : assert property (sc_fails_on_reservation_loss)
 	
-	assert property (atomic_address_alignment)
-	else $error("Atomic operation issued on misaligned address.");
+	P12 : assert property (atomic_address_alignment)
 	
-	assert property (no_simultaneous_atomic_accesses)
-	else $error("Two cores issued atomic transactions to the same address.");	
+	P13 : assert property (no_simultaneous_atomic_accesses)
 	
-	assert property (axi_response_valid)
-	else $error("Invalid AXI response received.");
+	P14 : assert property (axi_response_valid)
 	
 endmodule
